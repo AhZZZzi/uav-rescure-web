@@ -256,6 +256,11 @@
       <span class="row-label">Coordinates</span>
       <span class="coords-value" id="coordsText"></span>
     </div>
+    <div class="row" id="addressRow" style="display:none;">
+      <span class="dot ok"></span>
+      <span class="row-label">Address</span>
+      <span class="coords-value" id="addressText" style="text-align:right; max-width:220px; line-height:1.4;"></span>
+    </div>
   </div>
 
   <textarea id="notes" rows="3" placeholder="Optional: describe the situation — number of people, type of injury…"></textarea>
@@ -299,6 +304,19 @@
     );
   }
 
+  async function reverseGeocode(lat, lon) {
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`,
+        { headers: { "Accept-Language": "en" } }
+      );
+      const data = await res.json();
+      return data.display_name || null;
+    } catch {
+      return null;
+    }
+  }
+
   function requestLocation() {
     if (!navigator.geolocation) {
       setGpsStatus("bad", "Geolocation not supported");
@@ -306,13 +324,20 @@
     }
     setGpsStatus("pending", "Acquiring location…");
     navigator.geolocation.getCurrentPosition(
-      (pos) => {
+      async (pos) => {
         coords = { lat: pos.coords.latitude, lon: pos.coords.longitude };
         setGpsStatus("ok", "Location locked");
         document.getElementById("coordsRow").style.display = "flex";
         document.getElementById("coordsText").textContent =
           coords.lat.toFixed(6) + ", " + coords.lon.toFixed(6);
         activateBeacon(true);
+
+        // Reverse geocode: convert coordinates to human-readable address
+        document.getElementById("addressRow").style.display = "flex";
+        document.getElementById("addressText").textContent = "Looking up address…";
+        const address = await reverseGeocode(coords.lat, coords.lon);
+        coords.address = address;
+        document.getElementById("addressText").textContent = address || "Address not found";
       },
       () => setGpsStatus("bad", "Couldn't get location — check permissions"),
       { enableHighAccuracy: true, timeout: 10000 }
@@ -332,6 +357,7 @@
       type: "rescue_request",
       lat: coords.lat,
       lon: coords.lon,
+      address: coords.address || null,
       notes: document.getElementById("notes").value || null,
       timestamp: new Date().toISOString(),
     };
