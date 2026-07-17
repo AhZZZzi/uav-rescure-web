@@ -93,6 +93,7 @@
     z-index: 100; white-space: nowrap;
   }
   .toast.show { opacity: 1; }
+  .toast.warning { border-color: var(--danger); color: var(--danger); }
 
   .overlay {
     display: none; position: fixed; inset: 0;
@@ -221,9 +222,11 @@
 
   let pendingCompleteId = null;
 
-  function showToast(msg) {
+  function showToast(msg, variant = "success") {
     const t = document.getElementById("toast");
     t.textContent = msg;
+    t.classList.remove("warning");
+    if (variant === "warning") t.classList.add("warning");
     t.classList.add("show");
     setTimeout(() => t.classList.remove("show"), 2800);
   }
@@ -271,6 +274,18 @@
         document.getElementById("teleMode").textContent = t.mode || "-";
         document.getElementById("telePos").textContent = (t.lat && t.lon) ? `${t.lat.toFixed(4)}, ${t.lon.toFixed(4)}` : "-";
         document.getElementById("teleArmed").textContent = t.armed ? "Yes" : "No";
+      }
+      if (msg.type === "mission_status") {
+        // Giả định relay bọc payload trong "data" giống telemetry ở trên;
+        // nếu relay forward nguyên message gốc từ bridge_node thì các field nằm trực tiếp trong msg.
+        const s = msg.data || msg;
+        if (s.status === "armed") {
+          showToast("Drone đã cất cánh, đang bay tới điểm hẹn");
+        } else if (s.status === "arrived") {
+          showToast("Drone đã tới nơi giao hàng");
+        } else if (s.status === "timeout") {
+          showToast("Cảnh báo: drone chưa xác nhận tới nơi sau thời gian dự kiến", "warning");
+        }
       }
     };
   }
